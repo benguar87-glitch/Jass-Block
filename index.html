@@ -89,6 +89,28 @@
     .team-col h4 { margin-top:0; }
     @media (max-width:600px) { .teams-row { flex-direction:column; } }
 
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .chart-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: default;
+    }
+    .chart-legend-icon {
+      font-size: 24px;
+      line-height: 1;
+    }
+    .chart-legend-text {
+      font-weight: 600;
+    }
+
     /* Touch-friendly inputs and compact numeric fields for points/weis */
     input[type="number"], input[type="text"] { padding:8px; font-size:16px; }
     input.small { width:110px; max-width:38%; padding:8px; font-size:16px; }
@@ -313,6 +335,7 @@
           <button class="tab-button" type="button" data-tab="moodChartPanel">Stimmungsverlauf</button>
         </div>
         <div class="tab-panel active" id="pointsChartPanel">
+          <div id="pointsChartLegend" class="chart-legend"></div>
           <canvas id="pointsChart" height="200" tabindex="0"></canvas>
         </div>
         <div class="tab-panel" id="moodChartPanel">
@@ -381,7 +404,7 @@
     </div>
 
     <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--color-border-soft); text-align: center; font-size: 12px; color: var(--color-muted-text);">
-      Jass-Block v30 | <a href="#" onclick="forceUpdate(); return false;" style="color: inherit; text-decoration: underline;">Update erzwingen</a>
+      Jass-Block v31 | <a href="#" onclick="forceUpdate(); return false;" style="color: inherit; text-decoration: underline;">Update erzwingen</a>
     </div>
   </div>
 </div>
@@ -523,7 +546,7 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       // Register without timestamp to avoid infinite reload loops
-      navigator.serviceWorker.register('./service-worker.js?v=30')
+      navigator.serviceWorker.register('./service-worker.js?v=31')
         .then(registration => {
           console.log('ServiceWorker registered');
           // Check for updates

@@ -788,32 +788,32 @@ function updateChart() {
       },
       plugins: {
         legend: {
-          labels: {
-            color: chartColors.text,
-            usePointStyle: true,
-            pointStyleWidth: 30,
-            generateLabels: (chart) => {
-               const defaults = Chart.defaults.plugins.legend.labels.generateLabels(chart);
-               defaults.forEach(item => {
-                 if (item.datasetIndex === 0) {
-                   if (icon1) item.pointStyle = createMoodIconImage(icon1);
-                   item.fontColor = 'rgba(13,74,145,1)';
-                   item.fillStyle = 'rgba(13,74,145,1)'; // Fallback for box color if pointStyle fails
-                 }
-                 if (item.datasetIndex === 1) {
-                   if (icon2) item.pointStyle = createMoodIconImage(icon2);
-                   item.fontColor = 'rgba(249,168,37,1)';
-                   item.fillStyle = 'rgba(249,168,37,1)';
-                 }
-               });
-               return defaults;
-            }
-          }
+          display: false
         }
       }
     }
   });
+  updateCustomLegend(name1, name2, total1, total2, target1, target2, icon1, icon2);
   updateMoodChart(name1, name2, labels, team1Cumulative, team2Cumulative, total1, total2, target1, target2);
+}
+
+function updateCustomLegend(name1, name2, total1, total2, target1, target2, icon1, icon2) {
+  const container = document.getElementById('pointsChartLegend');
+  if (!container) return;
+  
+  const label1 = makeLegendLabel(name1, total1, target1);
+  const label2 = makeLegendLabel(name2, total2, target2);
+  
+  container.innerHTML = `
+    <div class="chart-legend-item">
+      <span class="chart-legend-icon">${icon1 || '😐'}</span>
+      <span class="chart-legend-text" style="color: rgba(13,74,145,1)">${label1}</span>
+    </div>
+    <div class="chart-legend-item">
+      <span class="chart-legend-icon">${icon2 || '😐'}</span>
+      <span class="chart-legend-text" style="color: rgba(249,168,37,1)">${label2}</span>
+    </div>
+  `;
 }
 
 function computeMoodValueFromPercent(percent, modifier) {
