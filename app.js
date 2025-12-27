@@ -75,6 +75,7 @@ function initializeThemeToggle() {
 
 initializeThemeToggle();
 let pendingRoundDeleteIndex = null;
+let pendingGameDeleteId = null;
 
 const pointValueLabelPlugin = {
   id: 'pointValueLabelPlugin',
@@ -195,8 +196,22 @@ function beginNewGamePreparation() {
   updateStartButtonState();
 }
 
+function validateGameSettings() {
+  const t1 = document.getElementById("team1Name");
+  const t2 = document.getElementById("team2Name");
+  const p1 = document.getElementById("targetPoints1");
+  const p2 = document.getElementById("targetPoints2");
+  
+  if (!t1.value.trim() || !t2.value.trim() || !p1.value || !p2.value) {
+    alert("Bitte füllen Sie alle Team-Namen und Zielpunkte aus, bevor Sie das Spiel starten.");
+    return false;
+  }
+  return true;
+}
+
 function handleStartButtonClick() {
   if (preparingNewGame) {
+    if (!validateGameSettings()) return;
     preparingNewGame = false;
     savedSettings = null;
     newGame();
@@ -207,6 +222,7 @@ function handleStartButtonClick() {
     beginNewGamePreparation();
     return;
   }
+  if (!validateGameSettings()) return;
   startGame();
 }
 
@@ -618,12 +634,43 @@ function getChartThemeColors() {
 function updateChart() {
   const name1 = document.getElementById("team1Name").value.substring(0,50) || 'Team 1';
   const name2 = document.getElementById("team2Name").value.substring(0,50) || 'Team 2';
+  const target1 = parseInt(document.getElementById("targetPoints1").value) || 0;
+  const target2 = parseInt(document.getElementById("targetPoints2").value) || 0;
+  const maxTarget = Math.max(target1, target2);
+
   const labels = roundsTeam1.map((_,i)=>`Runde ${i+1}`);
   const team1Cumulative = cumulative(roundsTeam1);
   const team2Cumulative = cumulative(roundsTeam2);
   const total1 = team1Cumulative.length ? team1Cumulative[team1Cumulative.length - 1] : 0;
   const total2 = team2Cumulative.length ? team2Cumulative[team2Cumulative.length - 1] : 0;
   const chartColors = getChartThemeColors();
+
+  const targetLinePlugin = {
+    id: 'targetLinePlugin',
+    beforeDraw: (chart) => {
+      const { ctx, chartArea: { top, bottom, left, right }, scales: { y } } = chart;
+      
+      const drawLine = (value, color) => {
+         if (!value) return;
+         const yPos = y.getPixelForValue(value);
+         // Ensure line is within chart area (though suggestedMax should ensure it usually is)
+         if (yPos >= top && yPos <= bottom) {
+           ctx.save();
+           ctx.beginPath();
+           ctx.strokeStyle = color;
+           ctx.lineWidth = 2;
+           ctx.setLineDash([6, 6]);
+           ctx.moveTo(left, yPos);
+           ctx.lineTo(right, yPos);
+           ctx.stroke();
+           ctx.restore();
+         }
+      };
+
+      drawLine(target1, 'rgba(13,74,145,0.6)');
+      drawLine(target2, 'rgba(249,168,37,0.6)');
+    }
+  };
 
   if (chart) chart.destroy();
   chart = new Chart(document.getElementById("pointsChart"), {
@@ -653,6 +700,7 @@ function updateChart() {
         }
       ]
     },
+    plugins: [targetLinePlugin],
     options: {
       color: chartColors.text,
       scales: {
@@ -666,6 +714,7 @@ function updateChart() {
         },
         y: {
           beginAtZero: true,
+          suggestedMax: maxTarget > 0 ? maxTarget : undefined,
           ticks: {
             precision: 0,
             color: chartColors.text
@@ -989,9 +1038,50 @@ function renderGameList() {
   list.innerHTML="";
   games.forEach(game=>{
     const li=document.createElement("li");
-    li.innerHTML=`${game.date} – ${game.team1Name} vs ${game.team2Name} <button onclick="loadGameById(${game.id})">▶</button>`;
+    li.innerHTML=`${game.date} – ${game.team1Name} vs ${game.team2Name} <button onclick="loadGameById(${game.id})">▶</button> <button class="round-delete" onclick="deleteGame(${game.id})" aria-label="Spiel löschen">✕</button>`;
     list.appendChild(li);
   });
+}
+
+function deleteGame(id) {
+  pendingGameDeleteId = id;
+  const overlay = document.getElementById('deleteGameConfirmOverlay');
+  overlay.classList.add('active');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function hideGameDeleteConfirmation() {
+  pendingGameDeleteId = null;
+  const overlay = document.getElementById('deleteGameConfirmOverlay');
+  overlay.classList.remove('active');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+function confirmGameDeletion() {
+  if (pendingGameDeleteId === null) return;
+  
+  games = games.filter(g => g.id !== pendingGameDeleteId);
+  localStorage.setItem("jassGames", JSON.stringify(games));
+  
+  // Wenn das gelöschte Spiel das aktuelle war, laden wir das letzte verbleibende oder resetten
+  if (currentGameId === pendingGameDeleteId) {
+    if (games.length > 0) {
+      loadGameById(games[games.length - 1].id);
+    } else {
+      // Kein Spiel mehr da -> Reset UI
+      currentGameId = Date.now();
+      roundsTeam1 = [];
+      roundsTeam2 = [];
+      roundsMeta = [];
+      updateSummary();
+      updateChart();
+      renderRounds();
+      unlockSettings();
+    }
+  }
+  
+  renderGameList();
+  hideGameDeleteConfirmation();
 }
 
 function loadGameById(id) {

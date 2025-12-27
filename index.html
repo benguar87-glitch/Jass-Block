@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <title>Jass-Block</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <meta name="application-name" content="Jass-Block">
+  <meta name="apple-mobile-web-app-title" content="Jass-Block">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js/dist/chart.umd.js"></script>
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icon-192.png" sizes="192x192">
   <meta name="theme-color" content="#0d4a91">
@@ -47,7 +49,8 @@
       color: #ffffff;
     }
     [data-theme="dark"] #victoryOverlay .victory-card,
-    [data-theme="dark"] #deleteConfirmOverlay .confirmation-card {
+    [data-theme="dark"] #deleteConfirmOverlay .confirmation-card,
+    [data-theme="dark"] #deleteGameConfirmOverlay .confirmation-card {
       background: linear-gradient(145deg, rgba(15,17,26,0.95), rgba(24,30,52,0.95));
       box-shadow: 0 25px 45px rgba(0,0,0,0.5);
       color: var(--color-text);
@@ -170,15 +173,15 @@
     #victoryOverlay button { margin-top:16px; padding:10px 20px; border-radius:999px; border:none; background: var(--color-primary); color: var(--color-primary-contrast); font-weight:700; cursor:pointer; transition:transform 0.2s ease, box-shadow 0.2s ease; }
     #victoryOverlay button:hover { transform:translateY(-1px); box-shadow:0 10px 20px rgba(13,74,145,0.35); }
     body.confirmation-mode { overflow:hidden; }
-    #deleteConfirmOverlay { position:fixed; inset:0; background:rgba(var(--color-overlay-rgb),0.78); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s ease-in-out; z-index:35; }
-    #deleteConfirmOverlay.active { opacity:1; pointer-events:auto; }
-    #deleteConfirmOverlay .confirmation-card { position:relative; padding:28px 38px; border-radius:20px; background: linear-gradient(145deg, rgba(255,255,255,0.98), rgba(233, 240, 255, 0.95)); box-shadow:0 25px 45px rgba(15,23,42,0.45); text-align:center; min-width:280px; color:var(--color-text); }
-    #deleteConfirmOverlay .confirmation-card h3 { margin-top:0; font-size:22px; font-weight:700; color:var(--color-text); }
-    #deleteConfirmOverlay .confirmation-card p { margin:6px 0 18px; color:var(--color-text); font-size:18px; }
-    #deleteConfirmOverlay .confirmation-actions { display:flex; justify-content:center; gap:10px; }
-    #deleteConfirmOverlay .confirmation-actions button { padding:10px 18px; border-radius:8px; border:none; font-weight:700; cursor:pointer; }
-    #deleteConfirmOverlay .confirmation-actions .neutral { background:#e2e8f0; color:#0f172a; }
-    #deleteConfirmOverlay .confirmation-actions .danger { background:var(--color-danger); color:#fff; }
+    #deleteConfirmOverlay, #deleteGameConfirmOverlay { position:fixed; inset:0; background:rgba(var(--color-overlay-rgb),0.78); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s ease-in-out; z-index:35; }
+    #deleteConfirmOverlay.active, #deleteGameConfirmOverlay.active { opacity:1; pointer-events:auto; }
+    #deleteConfirmOverlay .confirmation-card, #deleteGameConfirmOverlay .confirmation-card { position:relative; padding:28px 38px; border-radius:20px; background: linear-gradient(145deg, rgba(255,255,255,0.98), rgba(233, 240, 255, 0.95)); box-shadow:0 25px 45px rgba(15,23,42,0.45); text-align:center; min-width:280px; color:var(--color-text); }
+    #deleteConfirmOverlay .confirmation-card h3, #deleteGameConfirmOverlay .confirmation-card h3 { margin-top:0; font-size:22px; font-weight:700; color:var(--color-text); }
+    #deleteConfirmOverlay .confirmation-card p, #deleteGameConfirmOverlay .confirmation-card p { margin:6px 0 18px; color:var(--color-text); font-size:18px; }
+    #deleteConfirmOverlay .confirmation-actions, #deleteGameConfirmOverlay .confirmation-actions { display:flex; justify-content:center; gap:10px; }
+    #deleteConfirmOverlay .confirmation-actions button, #deleteGameConfirmOverlay .confirmation-actions button { padding:10px 18px; border-radius:8px; border:none; font-weight:700; cursor:pointer; }
+    #deleteConfirmOverlay .confirmation-actions .neutral, #deleteGameConfirmOverlay .confirmation-actions .neutral { background:#e2e8f0; color:#0f172a; }
+    #deleteConfirmOverlay .confirmation-actions .danger, #deleteGameConfirmOverlay .confirmation-actions .danger { background:var(--color-danger); color:#fff; }
     @keyframes confettiFall { 0% { transform: translateY(-140px) rotate(0deg); } 100% { transform: translateY(110vh) rotate(360deg); } }
     @keyframes victoryPop { 0% { transform: translateY(-20px) scale(0.85); opacity:0; } 70% { transform: translateY(0) scale(1.02); opacity:1; } 100% { transform: translateY(-6px) scale(1); } }
     body.victory-mode #pointsBreakdownContent { filter:brightness(1.05) saturate(1.1); }
@@ -350,6 +353,36 @@
   </div>
 </div>
 
+<div id="deleteGameConfirmOverlay" aria-hidden="true" role="alertdialog" aria-modal="true">
+  <div class="confirmation-card">
+    <h3>Spiel löschen?</h3>
+    <p>Möchtest du dieses gespeicherte Spiel wirklich löschen?</p>
+    <div class="confirmation-actions">
+      <button type="button" class="neutral" onclick="hideGameDeleteConfirmation()">Abbrechen</button>
+      <button type="button" class="danger" onclick="confirmGameDeletion()">Löschen</button>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js')
+        .then(registration => {
+          console.log('ServiceWorker registered');
+          // Check for updates
+          registration.update();
+        })
+        .catch(err => console.log('ServiceWorker registration failed: ', err));
+        
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // This fires when the service worker controlling this page changes,
+        // eg: the new service worker has skipped waiting and become active
+        window.location.reload();
+      });
+    });
+  }
+</script>
 </body>
 </html>
