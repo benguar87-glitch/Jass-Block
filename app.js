@@ -1313,3 +1313,434 @@ function focusNextInPointsBreakdown(current) {
   if (index === -1 || index === focusable.length - 1) return;
   focusable[index + 1].focus();
 }
+
+// --- Settings Overlay Logic ---
+
+function openSettings() {
+  const overlay = document.getElementById('settingsOverlay');
+  overlay.classList.add('active');
+  overlay.setAttribute('aria-hidden', 'false');
+}
+
+function closeSettings() {
+  const overlay = document.getElementById('settingsOverlay');
+  overlay.classList.remove('active');
+  overlay.setAttribute('aria-hidden', 'true');
+}
+
+// --- Camera Scan Logic ---
+
+let selectedTrump = null;
+let selectedScanTeam = null;
+let currentScanBase64 = null;
+let currentScanSessionPoints = 0;
+
+// API Key & Settings Management
+const apiKeyInput = document.getElementById('openaiApiKey');
+const showAiDetailsInput = document.getElementById('showAiDetails');
+
+if (apiKeyInput) {
+  const savedKey = localStorage.getItem('openaiApiKey');
+  if (savedKey) apiKeyInput.value = savedKey;
+  
+  apiKeyInput.addEventListener('change', () => {
+    localStorage.setItem('openaiApiKey', apiKeyInput.value.trim());
+  });
+}
+
+if (showAiDetailsInput) {
+  const savedDetails = localStorage.getItem('jassShowAiDetails');
+  // Standardmäßig aktiviert (true), außer es ist explizit 'false' gespeichert
+  if (savedDetails === 'false') {
+    showAiDetailsInput.checked = false;
+  } else {
+    showAiDetailsInput.checked = true;
+  }
+  
+  showAiDetailsInput.addEventListener('change', () => {
+    localStorage.setItem('jassShowAiDetails', showAiDetailsInput.checked);
+  });
+}
+
+function triggerCamera() {
+  const key = localStorage.getItem('openaiApiKey');
+  if (!key) {
+    alert('Bitte gib zuerst deinen OpenAI API Key in den Einstellungen ein.');
+    openSettings();
+    return;
+  }
+  document.getElementById('cameraInput').click();
+}
+
+function handleCameraInput(input) {
+  if (input.files && input.files[0]) {
+    const file = input.files[0];
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      currentScanBase64 = e.target.result; // Data URL
+      document.getElementById('scanPreviewImg').src = currentScanBase64;
+      document.getElementById('scanPreview').style.display = 'block';
+      
+      // Reset selection
+      selectedTrump = null;
+      selectedScanTeam = null;
+      document.querySelectorAll('.trump-btn').forEach(b => b.classList.remove('selected'));
+      document.querySelectorAll('.team-select-btn').forEach(b => b.classList.remove('selected'));
+      
+      // Update Team Names in Modal
+      const t1Name = document.getElementById('team1Name').value || 'Team 1';
+      const t2Name = document.getElementById('team2Name').value || 'Team 2';
+      document.getElementById('scanTeam1Btn').textContent = t1Name;
+      document.getElementById('scanTeam2Btn').textContent = t2Name;
+      
+      // Reset UI state
+      document.getElementById('scanControls').style.display = 'block';
+      document.getElementById('scanResults').style.display = 'none';
+      document.getElementById('scanCancelBtn').style.display = 'inline-block';
+      document.getElementById('startScanAnalysisBtn').style.display = 'inline-block';
+      document.getElementById('scanCloseBtn').style.display = 'none';
+      document.getElementById('scanRetryBtn').style.display = 'none';
+      document.getElementById('scanRetakeBtn').style.display = 'none';
+      
+      updateScanButtonState();
+      
+      const overlay = document.getElementById('scanContextOverlay');
+      overlay.classList.add('active');
+      overlay.setAttribute('aria-hidden', 'false');
+    };
+    reader.readAsDataURL(file);
+  }
+  // Reset input so same file can be selected again
+  input.value = '';
+}
+
+function selectTrump(trump) {
+  selectedTrump = trump;
+  document.querySelectorAll('.trump-btn').forEach(b => {
+    b.classList.toggle('selected', b.dataset.trump === trump);
+  });
+  updateScanButtonState();
+}
+
+function selectScanTeam(team) {
+  selectedScanTeam = team;
+  document.querySelectorAll('.team-select-btn').forEach(b => {
+    b.classList.toggle('selected', (team === 1 && b.id === 'scanTeam1Btn') || (team === 2 && b.id === 'scanTeam2Btn'));
+  });
+  updateScanButtonState();
+}
+
+function updateScanButtonState() {
+  const btn = document.getElementById('startScanAnalysisBtn');
+  btn.disabled = !selectedTrump || !selectedScanTeam;
+}
+
+function closeScanOverlay() {
+  const overlay = document.getElementById('scanContextOverlay');
+  overlay.classList.remove('active');
+  currentScanSessionPoints = 0;
+  // Reset Last Trick checkbox
+  const lastTrickBox = document.getElementById('scanLastTrick');
+  if (lastTrickBox) lastTrickBox.checked = false;
+}
+
+function revertScanPoints() {
+  if (currentScanSessionPoints === 0) return;
+  const inputId = selectedScanTeam === 1 ? 'roundTeam1' : 'roundTeam2';
+  const input = document.getElementById(inputId);
+  const currentVal = parseInt(input.value) || 0;
+  input.value = Math.max(0, currentVal - currentScanSessionPoints);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  currentScanSessionPoints = 0;
+}
+
+function retryAnalysis() {
+  revertScanPoints();
+  document.getElementById('scanResults').style.display = 'none';
+  document.getElementById('scanCloseBtn').style.display = 'none';
+  document.getElementById('scanRetryBtn').style.display = 'none';
+  document.getElementById('scanRetakeBtn').style.display = 'none';
+  analyzeImage();
+}
+
+function retakePhoto() {
+  revertScanPoints();
+  // Reset UI to preview state
+  document.getElementById('scanControls').style.display = 'block';
+  document.getElementById('scanResults').style.display = 'none';
+  document.getElementById('scanCancelBtn').style.display = 'inline-block';
+  document.getElementById('startScanAnalysisBtn').style.display = 'inline-block';
+  document.getElementById('scanCloseBtn').style.display = 'none';
+  document.getElementById('scanRetryBtn').style.display = 'none';
+  document.getElementById('scanRetakeBtn').style.display = 'none';
+  
+  triggerCamera()
+  const lastTrickBox = document.getElementById('scanLastTrick');
+  if (lastTrickBox) lastTrickBox.checked = false;
+}
+
+async function analyzeImage() {
+  const btn = document.getElementById('startScanAnalysisBtn');
+  const loading = document.getElementById('scanLoading');
+  const apiKey = localStorage.getItem('openaiApiKey');
+  const showDetails = document.getElementById('showAiDetails').checked;
+  const lastTrick = document.getElementById('scanLastTrick').checked;
+  
+  if (!apiKey) return;
+  
+  btn.disabled = true;
+  loading.style.display = 'block';
+  loading.textContent = `🤖 GPT-4o zählt für dich ...`;
+  
+  try {
+    const prompt = `
+    Du bist ein Jass-Experte. Ich zeige dir ein Bild von Jass-Karten (französisches Blatt), die in einem Stich gemacht wurden. Dies dient der Punktezählung in einer privaten Runde.
+    
+    Regeln:
+    - Trumpf ist: ${selectedTrump}
+    - Kartenwerte:
+      - Normal: Ass(11), König(4), Dame(3), Bube(2), 10(10), 9(0), 8(0), 7(0), 6(0)
+      - Trumpf: Bube/Puur(20), Nell/9(14), Ass(11), König(4), Dame(3), 10(10), 8(0), 7(0), 6(0)
+    - Farben benennen als: "Eckstein", "Herz", "Schaufel", "Kreuz".
+    - Jede Karte darf im Stich nur EINMAL vorkommen.
+    
+    Aufgabe:
+    1. Erkenne alle Karten auf dem Bild.
+    2. Berechne die Punkte basierend auf dem Trumpf "${selectedTrump}".
+    3. Gib NUR ein JSON zurück im Format: 
+       { 
+         "points": 123, 
+         "cards": [
+           { "name": "Herz Ass", "points": 11, "uncertain": false },
+           { "name": "Kreuz König", "points": 4, "uncertain": true }
+         ] 
+       }
+    Setze "uncertain": true, falls die Karte schwer zu erkennen ist oder du dir unsicher bist.
+    Falls du eine Karte siehst, aber absolut nicht erkennen kannst, füge ein Objekt hinzu: { "name": "UNKNOWN", "points": 0, "uncertain": true }.
+    Liste die Karten im JSON Array in der Reihenfolge auf, wie sie auf dem Bild erscheinen (z.B. von links nach rechts).
+    `;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              { type: "text", text: prompt },
+              { type: "image_url", image_url: { url: currentScanBase64 } }
+            ]
+          }
+        ],
+        max_tokens: 500,
+        response_format: { type: "json_object" }
+      })
+    });
+
+    const data = await response.json();
+    
+    if (data.error) {
+      throw new Error(data.error.message);
+    }
+    
+    const content = data.choices[0].message.content;
+    let result;
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonStr = jsonMatch ? jsonMatch[0] : content;
+      result = JSON.parse(jsonStr);
+    } catch (e) {
+      console.error("Parsing Error. Raw content:", content);
+      throw new Error("Konnte Antwort nicht lesen: " + content);
+    }
+    
+    // Calculate total points including Last Trick
+    let totalPoints = result.points;
+    if (lastTrick) {
+      totalPoints += 8;
+      result.cards.push({ name: "Letzter Stich", points: 8 });
+    }
+
+    // Apply points
+    const inputId = selectedScanTeam === 1 ? 'roundTeam1' : 'roundTeam2';
+    const input = document.getElementById(inputId);
+    
+    // Add to existing value if any
+    const currentVal = parseInt(input.value) || 0;
+    input.value = currentVal + totalPoints;
+    currentScanSessionPoints = totalPoints;
+    
+    // Trigger input event to update the other team's score automatically
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    if (showDetails) {
+      // Show Feedback in Scan Overlay
+      const tbody = document.getElementById('feedbackTableBody');
+      tbody.innerHTML = '';
+      
+      const updateGameScore = () => {
+        let newTotal = 0;
+        tbody.querySelectorAll('.scan-point-input').forEach(input => {
+          newTotal += parseInt(input.value) || 0;
+        });
+        
+        const diff = newTotal - currentScanSessionPoints;
+        currentScanSessionPoints = newTotal;
+        
+        document.getElementById('feedbackTotalPoints').textContent = newTotal;
+        
+        const mainInput = document.getElementById(inputId);
+        const currentMainVal = parseInt(mainInput.value) || 0;
+        mainInput.value = currentMainVal + diff;
+        mainInput.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+
+      const createRow = (name, points) => {
+        const tr = document.createElement('tr');
+        
+        // Name Input
+        const tdName = document.createElement('td');
+        tdName.style.padding = '4px';
+        tdName.style.borderBottom = '1px solid var(--color-border-soft)';
+        const nameInput = document.createElement('input');
+        nameInput.type = 'text';
+        nameInput.value = name;
+        nameInput.style.width = '100%';
+        nameInput.style.border = 'none';
+        nameInput.style.background = 'transparent';
+        nameInput.style.fontFamily = 'inherit';
+        nameInput.style.fontSize = 'inherit';
+        tdName.appendChild(nameInput);
+        
+        // Points Input
+        const tdPoints = document.createElement('td');
+        tdPoints.style.padding = '4px';
+        tdPoints.style.textAlign = 'right';
+        tdPoints.style.borderBottom = '1px solid var(--color-border-soft)';
+        const pointsInput = document.createElement('input');
+        pointsInput.type = 'number';
+        pointsInput.className = 'scan-point-input';
+        pointsInput.value = points;
+        pointsInput.style.width = '100%';
+        pointsInput.style.textAlign = 'right';
+        pointsInput.style.padding = '4px';
+        pointsInput.addEventListener('change', updateGameScore);
+        tdPoints.appendChild(pointsInput);
+
+        // Actions (Delete & Add)
+        const tdActions = document.createElement('td');
+        tdActions.style.padding = '4px';
+        tdActions.style.textAlign = 'right';
+        tdActions.style.borderBottom = '1px solid var(--color-border-soft)';
+        tdActions.style.whiteSpace = 'nowrap';
+
+        const delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.title = 'Zeile löschen';
+        delBtn.style.background = 'none';
+        delBtn.style.border = 'none';
+        delBtn.style.cursor = 'pointer';
+        delBtn.style.padding = '0 4px';
+        delBtn.style.fontSize = '16px';
+        delBtn.onclick = () => {
+            tr.remove();
+            updateGameScore();
+        };
+
+        const addBtn = document.createElement('button');
+        addBtn.textContent = '➕';
+        addBtn.title = 'Zeile darunter einfügen';
+        addBtn.style.background = 'none';
+        addBtn.style.border = 'none';
+        addBtn.style.cursor = 'pointer';
+        addBtn.style.padding = '0 4px';
+        addBtn.style.fontSize = '16px';
+        addBtn.onclick = () => {
+            const newRow = createRow('', 0);
+            tr.after(newRow);
+            // Focus the new name input
+            setTimeout(() => newRow.querySelector('input[type="text"]').focus(), 0);
+        };
+
+        tdActions.appendChild(delBtn);
+        tdActions.appendChild(addBtn);
+
+        tr.appendChild(tdName);
+        tr.appendChild(tdPoints);
+        tr.appendChild(tdActions);
+        
+        return tr;
+      };
+
+      result.cards.forEach(card => {
+        let displayName = card.name
+          .replace(/Eckstein/g, '♦️')
+          .replace(/Herz/g, '♥️')
+          .replace(/Schaufel/g, '♠️')
+          .replace(/Pik/g, '♠️')
+          .replace(/Kreuz/g, '♣️');
+
+        if (card.name === 'UNKNOWN') displayName = '⚠️ FEHLER';
+        else if (card.uncertain) displayName += ' ⚠️';
+
+        tbody.appendChild(createRow(displayName, card.points));
+      });
+      
+      // Setup global add button
+      const globalAddBtn = document.getElementById('addScanRowBtn');
+      // Remove old listeners by cloning
+      const newGlobalAddBtn = globalAddBtn.cloneNode(true);
+      globalAddBtn.parentNode.replaceChild(newGlobalAddBtn, globalAddBtn);
+      
+      newGlobalAddBtn.onclick = () => {
+        const newRow = createRow('', 0);
+        tbody.appendChild(newRow);
+        newRow.querySelector('input[type="text"]').focus();
+      };
+
+      document.getElementById('feedbackTotalPoints').textContent = totalPoints;
+      
+      // Switch UI to results view
+      document.getElementById('scanControls').style.display = 'none';
+      document.getElementById('scanResults').style.display = 'block';
+      document.getElementById('scanCancelBtn').style.display = 'none';
+      document.getElementById('startScanAnalysisBtn').style.display = 'none';
+      document.getElementById('scanCloseBtn').style.display = 'inline-block';
+      document.getElementById('scanRetryBtn').style.display = 'inline-block';
+      document.getElementById('scanRetakeBtn').style.display = 'inline-block';
+      
+    } else {
+      // Show simple alert and close
+      const cardNames = result.cards.map(c => c.name).join(', ');
+      alert(`Erkannt: ${cardNames}\n\n${totalPoints} Punkte hinzugefügt.`);
+      closeScanOverlay();
+    }
+    
+  } catch (error) {
+    console.error(error);
+    if (error.message.includes('quota')) {
+      alert('Fehler: Dein OpenAI-Guthaben ist aufgebraucht oder abgelaufen.\n\nBitte lade unter platform.openai.com Guthaben auf (Billing -> Add to credit balance). Ein ChatGPT Plus Abo reicht hierfür nicht aus.');
+    } else if (error.message.includes('invalid_api_key')) {
+      alert('Fehler: Der API-Key ist ungültig. Bitte prüfe den Schlüssel in den Einstellungen.');
+    } else {
+      alert('Fehler bei der Analyse: ' + error.message);
+    }
+  } finally {
+    btn.disabled = false;
+    loading.style.display = 'none';
+  }
+}
+
+function closeFeedbackOverlay() {
+  // Deprecated but kept for safety if called
+  const overlay = document.getElementById('feedbackOverlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+}

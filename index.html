@@ -182,6 +182,15 @@
     #deleteConfirmOverlay .confirmation-actions button, #deleteGameConfirmOverlay .confirmation-actions button { padding:10px 18px; border-radius:8px; border:none; font-weight:700; cursor:pointer; }
     #deleteConfirmOverlay .confirmation-actions .neutral, #deleteGameConfirmOverlay .confirmation-actions .neutral { background:#e2e8f0; color:#0f172a; }
     #deleteConfirmOverlay .confirmation-actions .danger, #deleteGameConfirmOverlay .confirmation-actions .danger { background:var(--color-danger); color:#fff; }
+    
+    #scanContextOverlay, #settingsOverlay { position:fixed; inset:0; background:rgba(var(--color-overlay-rgb),0.85); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s ease-in-out; z-index:40; }
+    #scanContextOverlay.active, #settingsOverlay.active { opacity:1; pointer-events:auto; }
+    #scanContextOverlay .confirmation-card, #settingsOverlay .confirmation-card { position:relative; padding:20px; border-radius:20px; background: var(--color-surface); box-shadow:0 25px 45px rgba(0,0,0,0.5); text-align:center; color:var(--color-text); max-height: 90vh; overflow-y: auto; }
+    .trump-btn { padding: 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-fill-muted); cursor: pointer; font-size: 14px; color: var(--color-text); }
+    .trump-btn.selected { background: var(--color-primary); color: var(--color-primary-contrast); border-color: var(--color-primary); }
+    .team-select-btn { flex: 1; padding: 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-fill-muted); cursor: pointer; font-weight: bold; color: var(--color-text); }
+    .team-select-btn.selected { background: var(--color-primary); color: var(--color-primary-contrast); border-color: var(--color-primary); }
+
     @keyframes confettiFall { 0% { transform: translateY(-140px) rotate(0deg); } 100% { transform: translateY(110vh) rotate(360deg); } }
     @keyframes victoryPop { 0% { transform: translateY(-20px) scale(0.85); opacity:0; } 70% { transform: translateY(0) scale(1.02); opacity:1; } 100% { transform: translateY(-6px) scale(1); } }
     body.victory-mode #pointsBreakdownContent { filter:brightness(1.05) saturate(1.1); }
@@ -213,8 +222,7 @@
     </div>
     <h2>Jass-Block</h2>
   </div>
-  <button id="themeToggleBtn" type="button" class="theme-toggle-button" aria-label="In den Dunkelmodus wechseln">🌙</button>
-  <button id="themeResetBtn" type="button" class="theme-reset-button" aria-label="Systemdesign übernehmen" style="display:none">Systemdesign</button>
+  <button id="openSettingsBtn" type="button" class="theme-toggle-button" aria-label="Einstellungen öffnen" onclick="openSettings()">⚙️</button>
 </header>
 <div class="breakdown-group">
   <div class="breakdown">
@@ -235,6 +243,7 @@
           <div class="field"><label>Zielpunkte</label><input id="targetPoints2" class="medium target-input" type="number" value="1000" placeholder="z. B. 1000"></div>
         </div>
       </div>
+
       <div id="validationMessage" style="color: var(--color-danger); margin-top: 10px; display: none; font-weight: bold;"></div>
       <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
         <button id="startGameToggle" class="primary" type="button" onclick="handleStartButtonClick()">Spiel starten</button>
@@ -291,9 +300,11 @@
             <span class="hint" id="roundHint2"></span>
             <span class="hint" id="weisHint2"></span>
           </div>
-          <div class="round-submit">
-            <button id="addRoundBtn" class="primary" onclick="addRound()">Punkte hinzufügen</button>
+          <div class="round-submit" style="display: flex; gap: 10px; flex-wrap: wrap;">
+            <button id="scanCardsBtn" class="primary" style="flex: 1; min-width: 120px;" onclick="triggerCamera()">📷 Foto</button>
+            <button id="addRoundBtn" class="primary" onclick="addRound()" style="flex: 2; min-width: 160px;">Punkte hinzufügen</button>
           </div>
+          <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleCameraInput(this)">
         </div>
       </div>
       <div class="tabs" id="breakdownTabs">
@@ -331,7 +342,42 @@
   </div>
   
   <div style="text-align: center; margin-top: 30px; font-size: 12px; color: var(--color-muted-text); opacity: 0.7;">
-    Jass-Block v6
+    <!-- Version info moved to settings -->
+  </div>
+</div>
+
+<div id="settingsOverlay" aria-hidden="true" role="dialog" aria-modal="true">
+  <div class="confirmation-card" style="text-align: left; width: 90%; max-width: 400px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h3 style="margin:0;">Einstellungen</h3>
+      <button type="button" onclick="closeSettings()" style="background:none; border:none; font-size:24px; cursor:pointer; color:var(--color-text);">✕</button>
+    </div>
+
+    <div class="field" style="margin-bottom: 20px;">
+      <label style="font-weight:bold; display:block; margin-bottom:8px;">Erscheinungsbild</label>
+      <div style="display:flex; gap:10px;">
+        <button id="themeToggleBtn" type="button" class="primary" style="flex:1;">Dunkelmodus umschalten</button>
+        <button id="themeResetBtn" type="button" class="neutral" style="flex:1; display:none;">System</button>
+      </div>
+    </div>
+
+    <div class="field" style="margin-bottom: 20px;">
+      <label style="font-weight:bold; display:block; margin-bottom:8px;">OpenAI API Key</label>
+      <input id="openaiApiKey" class="medium" type="password" placeholder="sk-..." style="width: 100%; max-width: 100%;">
+      <div style="font-size: 12px; color: var(--color-muted-text); margin-top: 4px;">Für die Kamera-Scan Funktion. Wird nur lokal gespeichert.</div>
+    </div>
+
+    <div class="field" style="margin-bottom: 20px;">
+      <label class="match-checkbox" style="justify-content: flex-start; font-weight:bold; color:var(--color-text);">
+        <input type="checkbox" id="showAiDetails" checked>
+        Ergebnisse der KI-Kartenzählung anzeigen
+      </label>
+      <div style="font-size: 12px; color: var(--color-muted-text); margin-top: 4px;">Zeigt nach dem Scan eine Tabelle mit den erkannten Karten.</div>
+    </div>
+
+    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--color-border-soft); text-align: center; font-size: 12px; color: var(--color-muted-text);">
+      Jass-Block v13 | <a href="#" onclick="forceUpdate(); return false;" style="color: inherit; text-decoration: underline;">Update erzwingen</a>
+    </div>
   </div>
 </div>
 
@@ -369,10 +415,104 @@
   </div>
 </div>
 
+<div id="scanContextOverlay" aria-hidden="true" role="alertdialog" aria-modal="true">
+  <div class="confirmation-card" style="max-width: 400px; width: 90%;">
+    <h3>Karten auswerten</h3>
+    <div id="scanPreview" style="margin-bottom: 15px; max-height: 200px; overflow: hidden; border-radius: 8px; display: none;">
+      <img id="scanPreviewImg" style="width: 100%; object-fit: cover;">
+    </div>
+    
+    <div id="scanControls">
+      <div class="field">
+        <label>Trumpf wählen:</label>
+        <div class="trump-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px;">
+          <button type="button" onclick="selectTrump('Eckstein')" class="trump-btn" data-trump="Eckstein" style="font-size: 24px;">♦️</button>
+          <button type="button" onclick="selectTrump('Herz')" class="trump-btn" data-trump="Herz" style="font-size: 24px;">♥️</button>
+          <button type="button" onclick="selectTrump('Pik')" class="trump-btn" data-trump="Pik" style="font-size: 24px;">♠️</button>
+          <button type="button" onclick="selectTrump('Kreuz')" class="trump-btn" data-trump="Kreuz" style="font-size: 24px;">♣️</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Punkte für:</label>
+        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+          <button type="button" id="scanTeam1Btn" onclick="selectScanTeam(1)" class="team-select-btn">Team 1</button>
+          <button type="button" id="scanTeam2Btn" onclick="selectScanTeam(2)" class="team-select-btn">Team 2</button>
+        </div>
+        <label class="match-checkbox" style="justify-content: center; font-weight:bold; color:var(--color-text);">
+          <input type="checkbox" id="scanLastTrick">
+          Letzter Stich (+8)
+        </label>
+      </div>
+    </div>
+
+    <div id="scanLoading" style="display: none; margin: 15px 0; color: var(--color-primary); font-weight: bold;">
+      🤖 Analysiere Bild...
+    </div>
+
+    <div id="scanResults" style="display:none; margin-top: 15px; border-top: 1px solid var(--color-border-soft); padding-top: 15px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h4 style="margin: 0;">Ergebnis</h4>
+        <button type="button" id="addScanRowBtn" style="font-size:12px; padding:4px 8px; background:var(--color-fill-muted); border:1px solid var(--color-border);">+ Karte</button>
+      </div>
+      <div style="max-height: 300px; overflow-y: auto;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left;">
+          <thead>
+            <tr style="border-bottom: 1px solid var(--color-border);">
+              <th style="padding: 8px;">Karte</th>
+              <th style="padding: 8px; text-align: right; width: 70px;">Punkte</th>
+              <th style="padding: 8px; width: 70px;"></th>
+            </tr>
+          </thead>
+          <tbody id="feedbackTableBody">
+            <!-- Rows will be inserted here -->
+          </tbody>
+          <tfoot>
+            <tr style="border-top: 2px solid var(--color-border); font-weight: bold;">
+              <td style="padding: 8px;">Total</td>
+              <td style="padding: 8px; text-align: right;" id="feedbackTotalPoints">0</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="confirmation-actions" style="margin-top: 20px;">
+      <button type="button" id="scanCancelBtn" class="neutral" onclick="closeScanOverlay()">Abbrechen</button>
+      <button type="button" id="startScanAnalysisBtn" class="primary" onclick="analyzeImage()" disabled>Auswerten</button>
+      
+      <button type="button" id="scanRetakeBtn" class="neutral" onclick="retakePhoto()" style="display:none;">Neues Foto</button>
+      <button type="button" id="scanRetryBtn" class="neutral" onclick="retryAnalysis()" style="display:none;">Neu zählen</button>
+      <button type="button" id="scanCloseBtn" class="primary" onclick="closeScanOverlay()" style="display:none;">Übernehmen</button>
+    </div>
+  </div>
+</div>
+
 <script src="app.js"></script>
 <script>
+  function forceUpdate() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+          registration.unregister();
+        }
+        caches.keys().then((keyList) => {
+          return Promise.all(keyList.map((key) => {
+            return caches.delete(key);
+          }));
+        }).then(() => {
+          window.location.reload();
+        });
+      });
+    } else {
+      window.location.reload();
+    }
+  }
+
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
+      // Register without timestamp to avoid infinite reload loops
       navigator.serviceWorker.register('./service-worker.js')
         .then(registration => {
           console.log('ServiceWorker registered');
