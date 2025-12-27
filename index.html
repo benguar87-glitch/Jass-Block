@@ -373,10 +373,15 @@
         Ergebnisse der KI-Kartenzählung anzeigen
       </label>
       <div style="font-size: 12px; color: var(--color-muted-text); margin-top: 4px;">Zeigt nach dem Scan eine Tabelle mit den erkannten Karten.</div>
+      
+      <label class="match-checkbox" style="justify-content: flex-start; font-weight:normal; color:var(--color-text); margin-top: 10px; margin-left: 25px;">
+        <input type="checkbox" id="showZeroPointCardsSettings" checked>
+        Brettle (0 Punkte) anzeigen
+      </label>
     </div>
 
     <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--color-border-soft); text-align: center; font-size: 12px; color: var(--color-muted-text);">
-      Jass-Block v20 | <a href="#" onclick="forceUpdate(); return false;" style="color: inherit; text-decoration: underline;">Update erzwingen</a>
+      Jass-Block v22 | <a href="#" onclick="forceUpdate(); return false;" style="color: inherit; text-decoration: underline;">Update erzwingen</a>
     </div>
   </div>
 </div>
@@ -453,7 +458,12 @@
     <div id="scanResults" style="display:none; margin-top: 15px; border-top: 1px solid var(--color-border-soft); padding-top: 15px;">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <h4 style="margin: 0;">Ergebnis</h4>
-        <button type="button" id="addScanRowBtn" style="font-size:12px; padding:4px 8px; background:var(--color-fill-muted); border:1px solid var(--color-border);">+ Karte</button>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label style="font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+            <input type="checkbox" id="showZeroPointCardsResult"> Brettle
+          </label>
+          <button type="button" id="addScanRowBtn" style="font-size:12px; padding:4px 8px; background:var(--color-fill-muted); border:1px solid var(--color-border);">+ Karte</button>
+        </div>
       </div>
       <div style="max-height: 300px; overflow-y: auto;">
         <table style="width: 100%; border-collapse: collapse; text-align: left;">

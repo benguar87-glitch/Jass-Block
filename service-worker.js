@@ -1,4 +1,4 @@
-const CACHE_NAME = "jass-pwa-v20";
+const CACHE_NAME = "jass-pwa-v22";
 const FILES_TO_CACHE = [
   "./",
   "./index.html",

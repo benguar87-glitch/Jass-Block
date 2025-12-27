@@ -1338,6 +1338,7 @@ let currentScanSessionPoints = 0;
 // API Key & Settings Management
 const apiKeyInput = document.getElementById('openaiApiKey');
 const showAiDetailsInput = document.getElementById('showAiDetails');
+const showZeroPointCardsSettings = document.getElementById('showZeroPointCardsSettings');
 
 if (apiKeyInput) {
   const savedKey = localStorage.getItem('openaiApiKey');
@@ -1359,8 +1360,36 @@ if (showAiDetailsInput) {
   
   showAiDetailsInput.addEventListener('change', () => {
     localStorage.setItem('jassShowAiDetails', showAiDetailsInput.checked);
+    updateZeroPointSettingsState();
   });
 }
+
+if (showZeroPointCardsSettings) {
+  const savedZero = localStorage.getItem('jassShowZeroPointCards');
+  // Standardmäßig aktiviert (true), außer es ist explizit 'false' gespeichert
+  if (savedZero === 'false') {
+    showZeroPointCardsSettings.checked = false;
+  } else {
+    showZeroPointCardsSettings.checked = true;
+  }
+  
+  showZeroPointCardsSettings.addEventListener('change', () => {
+    localStorage.setItem('jassShowZeroPointCards', showZeroPointCardsSettings.checked);
+  });
+}
+
+function updateZeroPointSettingsState() {
+  if (showZeroPointCardsSettings && showAiDetailsInput) {
+    showZeroPointCardsSettings.disabled = !showAiDetailsInput.checked;
+    if (!showAiDetailsInput.checked) {
+      showZeroPointCardsSettings.parentElement.style.opacity = '0.5';
+    } else {
+      showZeroPointCardsSettings.parentElement.style.opacity = '1';
+    }
+  }
+}
+// Init state
+updateZeroPointSettingsState();
 
 function triggerCamera() {
   const key = localStorage.getItem('openaiApiKey');
@@ -1560,7 +1589,9 @@ async function analyzeImage() {
     }
     
     // Calculate total points including Last Trick
-    let totalPoints = result.points;
+    // We ignore result.points from AI and recalculate from cards to be safe
+    let totalPoints = result.cards.reduce((sum, card) => sum + (card.points || 0), 0);
+    
     if (lastTrick) {
       totalPoints += 8;
       result.cards.push({ name: "Letzter Stich", points: 8 });
@@ -1602,6 +1633,11 @@ async function analyzeImage() {
 
       const createRow = (name, points, isManual = false) => {
         const tr = document.createElement('tr');
+        
+        // Mark zero point rows for filtering
+        if (!isManual && points === 0) {
+          tr.classList.add('scan-row-zero');
+        }
         
         // Name Input
         const tdName = document.createElement('td');
@@ -1709,6 +1745,22 @@ async function analyzeImage() {
         tbody.appendChild(newRow);
         newRow.querySelector('.scan-point-input').focus();
       };
+      
+      // Setup Zero Point Toggle
+      const zeroToggle = document.getElementById('showZeroPointCardsResult');
+      const savedZeroPref = localStorage.getItem('jassShowZeroPointCards');
+      // Default true unless explicitly false
+      zeroToggle.checked = savedZeroPref !== 'false';
+      
+      const applyZeroFilter = () => {
+        const show = zeroToggle.checked;
+        tbody.querySelectorAll('.scan-row-zero').forEach(row => {
+          row.style.display = show ? '' : 'none';
+        });
+      };
+      
+      zeroToggle.onclick = applyZeroFilter;
+      applyZeroFilter(); // Apply initial state
 
       document.getElementById('feedbackTotalPoints').textContent = totalPoints;
       
