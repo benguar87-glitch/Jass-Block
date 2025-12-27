@@ -282,7 +282,7 @@
                     Match
                   </label>
                 </td>
-                <td><input id="roundWeis1" type="number" min="0" max="990" step="10" inputmode="numeric" pattern="\d*" value="0"></td>
+                <td><input id="roundWeis1" type="number" min="0" max="990" step="10" inputmode="numeric" pattern="\d*" placeholder="0"></td>
                 <td>
                   <input id="roundTeam2" type="number" min="0" max="260" step="1" inputmode="numeric" pattern="\d*" placeholder="80">
                   <label class="match-checkbox">
@@ -290,7 +290,7 @@
                     Match
                   </label>
                 </td>
-                <td><input id="roundWeis2" type="number" min="0" max="990" step="10" inputmode="numeric" pattern="\d*" value="0"></td>
+                <td><input id="roundWeis2" type="number" min="0" max="990" step="10" inputmode="numeric" pattern="\d*" placeholder="0"></td>
               </tr>
             </tbody>
           </table>
@@ -418,8 +418,8 @@
 <div id="scanContextOverlay" aria-hidden="true" role="alertdialog" aria-modal="true">
   <div class="confirmation-card" style="max-width: 400px; width: 90%;">
     <h3>Karten auswerten</h3>
-    <div id="scanPreview" style="margin-bottom: 15px; max-height: 200px; overflow: hidden; border-radius: 8px; display: none;">
-      <img id="scanPreviewImg" style="width: 100%; object-fit: cover;">
+    <div id="scanPreview" style="margin-bottom: 15px; text-align: center; display: none;">
+      <img id="scanPreviewImg" style="max-width: 100%; max-height: 300px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
     </div>
     
     <div id="scanControls">

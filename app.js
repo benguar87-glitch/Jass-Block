@@ -421,8 +421,8 @@ function addRound() {
 
   roundTeam1Input.value = "";
   roundTeam2Input.value = "";
-  document.getElementById("roundWeis1").value = 0;
-  document.getElementById("roundWeis2").value = 0;
+  document.getElementById("roundWeis1").value = "";
+  document.getElementById("roundWeis2").value = "";
   if (match1Checkbox) match1Checkbox.checked = false;
   if (match2Checkbox) match2Checkbox.checked = false;
   // Re-enable both card inputs after adding round
@@ -1494,7 +1494,7 @@ async function analyzeImage() {
   
   try {
     const prompt = `
-    Du bist ein Jass-Experte. Ich zeige dir ein Bild von Jass-Karten (französisches Blatt), die in einem Stich gemacht wurden. Dies dient der Punktezählung in einer privaten Runde.
+    Du bist ein Jass-Experte. Ich zeige dir ein Bild von "echten Altenburger Spielkarten" (Jass-Karten, französisches Blatt), die in einem Stich gemacht wurden. Dies dient der Punktezählung in einer privaten Runde.
     
     Regeln:
     - Trumpf ist: ${selectedTrump}
@@ -1600,7 +1600,7 @@ async function analyzeImage() {
         mainInput.dispatchEvent(new Event('input', { bubbles: true }));
       };
 
-      const createRow = (name, points) => {
+      const createRow = (name, points, isManual = false) => {
         const tr = document.createElement('tr');
         
         // Name Input
@@ -1625,7 +1625,14 @@ async function analyzeImage() {
         const pointsInput = document.createElement('input');
         pointsInput.type = 'number';
         pointsInput.className = 'scan-point-input';
-        pointsInput.value = points;
+        
+        if (isManual) {
+          pointsInput.value = '';
+          pointsInput.placeholder = '0';
+        } else {
+          pointsInput.value = points;
+        }
+        
         pointsInput.style.width = '100%';
         pointsInput.style.textAlign = 'right';
         pointsInput.style.padding = '4px';
@@ -1661,10 +1668,10 @@ async function analyzeImage() {
         addBtn.style.padding = '0 4px';
         addBtn.style.fontSize = '16px';
         addBtn.onclick = () => {
-            const newRow = createRow('', 0);
+            const newRow = createRow('', 0, true);
             tr.after(newRow);
-            // Focus the new name input
-            setTimeout(() => newRow.querySelector('input[type="text"]').focus(), 0);
+            // Focus the new points input
+            setTimeout(() => newRow.querySelector('.scan-point-input').focus(), 0);
         };
 
         tdActions.appendChild(delBtn);
@@ -1698,16 +1705,19 @@ async function analyzeImage() {
       globalAddBtn.parentNode.replaceChild(newGlobalAddBtn, globalAddBtn);
       
       newGlobalAddBtn.onclick = () => {
-        const newRow = createRow('', 0);
+        const newRow = createRow('', 0, true);
         tbody.appendChild(newRow);
-        newRow.querySelector('input[type="text"]').focus();
+        newRow.querySelector('.scan-point-input').focus();
       };
 
       document.getElementById('feedbackTotalPoints').textContent = totalPoints;
       
       // Switch UI to results view
       document.getElementById('scanControls').style.display = 'none';
-      document.getElementById('scanResults').style.display = 'block';
+      const resultsDiv = document.getElementById('scanResults');
+      resultsDiv.style.display = 'block';
+      resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      
       document.getElementById('scanCancelBtn').style.display = 'none';
       document.getElementById('startScanAnalysisBtn').style.display = 'none';
       document.getElementById('scanCloseBtn').style.display = 'inline-block';
