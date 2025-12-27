@@ -638,7 +638,7 @@ function getMoodIcon(value) {
 }
 
 function createMoodIconImage(emoji) {
-  const size = 40;
+  const size = 64;
   const canvas = document.createElement('canvas');
   canvas.width = size;
   canvas.height = size;
@@ -647,8 +647,11 @@ function createMoodIconImage(emoji) {
   ctx.font = `${size * 0.75}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(emoji, size/2, size/2 + 3); 
-  return canvas;
+  ctx.fillText(emoji, size/2, size/2 + 4); 
+  
+  const img = new Image();
+  img.src = canvas.toDataURL();
+  return img;
 }
 
 function makeLegendLabel(name, total, target) {
@@ -700,6 +703,9 @@ function updateChart() {
     icon1 = getMoodIcon(mood1);
     icon2 = getMoodIcon(mood2);
   }
+  
+  if (!icon1) icon1 = '😐';
+  if (!icon2) icon2 = '😐';
 
   const targetLinePlugin = {
     id: 'targetLinePlugin',
@@ -783,7 +789,7 @@ function updateChart() {
       plugins: {
         legend: {
           labels: {
-            color: chartColors.text,
+            color: ['rgba(13,74,145,1)', 'rgba(249,168,37,1)'],
             usePointStyle: true,
             pointStyleWidth: 30,
             generateLabels: (chart) => {
@@ -791,11 +797,9 @@ function updateChart() {
                defaults.forEach(item => {
                  if (item.datasetIndex === 0) {
                    if (icon1) item.pointStyle = createMoodIconImage(icon1);
-                   item.fontColor = 'rgba(13,74,145,1)';
                  }
                  if (item.datasetIndex === 1) {
                    if (icon2) item.pointStyle = createMoodIconImage(icon2);
-                   item.fontColor = 'rgba(249,168,37,1)';
                  }
                });
                return defaults;
