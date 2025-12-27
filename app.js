@@ -628,9 +628,33 @@ function toggleBreakdown(team) {
 // Keep delegation fallback removed; using inline onclick on summary-lines for reliability
 
 // Liniendiagramm
-function makeLegendLabel(name, total) {
+function getMoodIcon(value) {
+  if (value < 20) return '😡';
+  if (value < 60) return '😠';
+  if (value < 100) return '😐';
+  if (value < 140) return '🙂';
+  if (value < 180) return '😄';
+  return '🥳';
+}
+
+function createMoodIconImage(emoji) {
+  const size = 40;
+  const canvas = document.createElement('canvas');
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  
+  ctx.font = `${size * 0.75}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, size/2, size/2 + 3); 
+  return canvas;
+}
+
+function makeLegendLabel(name, total, target) {
   const pts = Number.isFinite(total) ? total : 0;
-  return `${name} (${pts} Punkte)`;
+  const tgt = (target && target > 0) ? ` / ${target}` : '';
+  return `${name} (${pts}${tgt} Punkte)`;
 }
 
 function getChartThemeColors() {
@@ -653,6 +677,29 @@ function updateChart() {
   const total1 = team1Cumulative.length ? team1Cumulative[team1Cumulative.length - 1] : 0;
   const total2 = team2Cumulative.length ? team2Cumulative[team2Cumulative.length - 1] : 0;
   const chartColors = getChartThemeColors();
+
+  // Calculate current mood icons for legend
+  let icon1 = '';
+  let icon2 = '';
+  const lastIndex = team1Cumulative.length - 1;
+  if (lastIndex >= 0) {
+    const cum1 = team1Cumulative[lastIndex];
+    const cum2 = team2Cumulative[lastIndex];
+    const total = cum1 + cum2;
+    const baseline = total === 0 ? null : total / 2;
+    const pct1 = baseline ? (cum1 / baseline) * 100 : 0;
+    const pct2 = baseline ? (cum2 / baseline) * 100 : 0;
+    
+    const roundMeta = roundsMeta[lastIndex] || {};
+    const matchEffect1 = roundMeta.match === 1 ? 18 : (roundMeta.match === 2 ? -48 : 0);
+    const matchEffect2 = roundMeta.match === 2 ? 18 : (roundMeta.match === 1 ? -48 : 0);
+    
+    const mood1 = Number.isFinite(pct1) ? computeMoodValueFromPercent(pct1, matchEffect1) : 100;
+    const mood2 = Number.isFinite(pct2) ? computeMoodValueFromPercent(pct2, matchEffect2) : 100;
+    
+    icon1 = getMoodIcon(mood1);
+    icon2 = getMoodIcon(mood2);
+  }
 
   const targetLinePlugin = {
     id: 'targetLinePlugin',
@@ -688,7 +735,7 @@ function updateChart() {
       labels,
       datasets: [
         {
-          label: makeLegendLabel(name1, total1),
+          label: makeLegendLabel(name1, total1, target1),
           data: team1Cumulative,
           tension:0.3,
           borderColor: 'rgba(13,74,145,0.95)',
@@ -698,7 +745,7 @@ function updateChart() {
           fill: false
         },
         {
-          label: makeLegendLabel(name2, total2),
+          label: makeLegendLabel(name2, total2, target2),
           data: team2Cumulative,
           tension:0.3,
           borderColor: 'rgba(249,168,37,0.95)',
@@ -736,13 +783,29 @@ function updateChart() {
       plugins: {
         legend: {
           labels: {
-            color: chartColors.text
+            color: chartColors.text,
+            usePointStyle: true,
+            pointStyleWidth: 30,
+            generateLabels: (chart) => {
+               const defaults = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+               defaults.forEach(item => {
+                 if (item.datasetIndex === 0) {
+                   if (icon1) item.pointStyle = createMoodIconImage(icon1);
+                   item.fontColor = 'rgba(13,74,145,1)';
+                 }
+                 if (item.datasetIndex === 1) {
+                   if (icon2) item.pointStyle = createMoodIconImage(icon2);
+                   item.fontColor = 'rgba(249,168,37,1)';
+                 }
+               });
+               return defaults;
+            }
           }
         }
       }
     }
   });
-  updateMoodChart(name1, name2, labels, team1Cumulative, team2Cumulative, total1, total2);
+  updateMoodChart(name1, name2, labels, team1Cumulative, team2Cumulative, total1, total2, target1, target2);
 }
 
 function computeMoodValueFromPercent(percent, modifier) {
@@ -753,7 +816,7 @@ function computeMoodValueFromPercent(percent, modifier) {
   return Math.max(0, Math.min(200, 100 + adjusted + modifier));
 }
 
-function updateMoodChart(name1, name2, labels, team1Cumulative, team2Cumulative, total1, total2) {
+function updateMoodChart(name1, name2, labels, team1Cumulative, team2Cumulative, total1, total2, target1, target2) {
   const moodLabels = labels.slice();
   const moodData1 = [];
   const moodData2 = [];
@@ -788,10 +851,10 @@ function updateMoodChart(name1, name2, labels, team1Cumulative, team2Cumulative,
           pointRadius: 4,
           fill: false,
           pointTotals: team1Cumulative,
-          label: makeLegendLabel(name1, total1)
+          label: makeLegendLabel(name1, total1, target1)
         },
         {
-          label: makeLegendLabel(name2, total2),
+          label: makeLegendLabel(name2, total2, target2),
           data: moodData2,
           tension: 0.3,
           borderColor: 'rgba(249,168,37,0.95)',
@@ -1546,7 +1609,7 @@ async function analyzeImage() {
        }
     Setze "uncertain": true, falls die Karte schwer zu erkennen ist oder du dir unsicher bist.
     Falls du eine Karte siehst, aber absolut nicht erkennen kannst, füge ein Objekt hinzu: { "name": "UNKNOWN", "points": 0, "uncertain": true }.
-    Liste die Karten im JSON Array in der Reihenfolge auf, wie sie auf dem Bild erscheinen (z.B. von links nach rechts).
+    Liste die Karten im JSON Array ZWINGEND in der Reihenfolge auf, wie sie auf dem Bild erscheinen (z.B. von links nach rechts oder im Uhrzeigersinn). Sortiere sie NICHT nach Werten.
     `;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -1567,6 +1630,7 @@ async function analyzeImage() {
           }
         ],
         max_tokens: 500,
+        temperature: 0,
         response_format: { type: "json_object" }
       })
     });

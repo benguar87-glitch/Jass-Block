@@ -381,7 +381,7 @@
     </div>
 
     <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--color-border-soft); text-align: center; font-size: 12px; color: var(--color-muted-text);">
-      Jass-Block v22 | <a href="#" onclick="forceUpdate(); return false;" style="color: inherit; text-decoration: underline;">Update erzwingen</a>
+      Jass-Block v28 | <a href="#" onclick="forceUpdate(); return false;" style="color: inherit; text-decoration: underline;">Update erzwingen</a>
     </div>
   </div>
 </div>
@@ -523,7 +523,7 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       // Register without timestamp to avoid infinite reload loops
-      navigator.serviceWorker.register('./service-worker.js')
+      navigator.serviceWorker.register('./service-worker.js?v=28')
         .then(registration => {
           console.log('ServiceWorker registered');
           // Check for updates
