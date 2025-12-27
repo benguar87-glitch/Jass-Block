@@ -235,6 +235,7 @@
           <div class="field"><label>Zielpunkte</label><input id="targetPoints2" class="medium target-input" type="number" value="1000" placeholder="z. B. 1000"></div>
         </div>
       </div>
+      <div id="validationMessage" style="color: var(--color-danger); margin-top: 10px; display: none; font-weight: bold;"></div>
       <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
         <button id="startGameToggle" class="primary" type="button" onclick="handleStartButtonClick()">Spiel starten</button>
         <button id="cancelNewGameBtn" class="primary" type="button" style="display:none" onclick="cancelNewGamePreparation()">Abbrechen</button>
@@ -327,6 +328,10 @@
     <div class="breakdown-content" id="savedGamesBreakdownContent">
       <ul id="gameList"></ul>
     </div>
+  </div>
+  
+  <div style="text-align: center; margin-top: 30px; font-size: 12px; color: var(--color-muted-text); opacity: 0.7;">
+    Jass-Block v6
   </div>
 </div>
 

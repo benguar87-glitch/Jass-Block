@@ -201,11 +201,18 @@ function validateGameSettings() {
   const t2 = document.getElementById("team2Name");
   const p1 = document.getElementById("targetPoints1");
   const p2 = document.getElementById("targetPoints2");
+  const msg = document.getElementById("validationMessage");
   
   if (!t1.value.trim() || !t2.value.trim() || !p1.value || !p2.value) {
-    alert("Bitte füllen Sie alle Team-Namen und Zielpunkte aus, bevor Sie das Spiel starten.");
+    if (msg) {
+      msg.textContent = "Bitte füllen Sie alle Team-Namen und Zielpunkte aus, bevor Sie das Spiel starten.";
+      msg.style.display = "block";
+    } else {
+      alert("Bitte füllen Sie alle Team-Namen und Zielpunkte aus, bevor Sie das Spiel starten.");
+    }
     return false;
   }
+  if (msg) msg.style.display = "none";
   return true;
 }
 
@@ -228,6 +235,8 @@ function handleStartButtonClick() {
 
 function cancelNewGamePreparation() {
   if (!preparingNewGame) return;
+  const msg = document.getElementById("validationMessage");
+  if (msg) msg.style.display = "none";
   preparingNewGame = false;
   restoreSavedSettings();
   if (hasActiveGame()) {
@@ -1253,10 +1262,14 @@ function setupAddButtonToggle() {
 }
 setupAddButtonToggle();
 
-['team1Name','team2Name'].forEach(id => {
+['team1Name','team2Name', 'targetPoints1', 'targetPoints2'].forEach(id => {
   const input = document.getElementById(id);
   if (!input) return;
-  input.addEventListener('input', updateRoundTeamLabels);
+  input.addEventListener('input', () => {
+    if (id.includes('Name')) updateRoundTeamLabels();
+    const msg = document.getElementById('validationMessage');
+    if (msg) msg.style.display = 'none';
+  });
 });
 
 function activateBreakdownTab(panelId) {
