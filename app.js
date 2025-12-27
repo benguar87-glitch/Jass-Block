@@ -136,6 +136,16 @@ function closeSection(contentId) {
   setSectionExpanded(contentId, false);
 }
 
+function ensureIdleBreakdownState() {
+  if (!hasActiveGame() && !preparingNewGame) {
+    openSection('settingsBreakdownContent');
+    closeSection('pointsBreakdownContent');
+    closeSection('newRoundBreakdownContent');
+    closeSection('roundDetailsBreakdownContent');
+    closeSection('savedGamesBreakdownContent');
+  }
+}
+
 function hasActiveGame() {
   return (roundsTeam1.length + roundsTeam2.length) > 0;
 }
@@ -970,6 +980,7 @@ function loadGames() {
   updateSummary(); updateChart(); renderRounds();
   checkGameEnd();
   renderGameList();
+  ensureIdleBreakdownState();
 }
 
 // Spiel aus Liste laden
