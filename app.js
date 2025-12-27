@@ -1124,7 +1124,7 @@ function renderGameList() {
 }
 
 function deleteGame(id) {
-  pendingGameDeleteId = id;
+  pendingGameDeleteId = Number(id);
   const overlay = document.getElementById('deleteGameConfirmOverlay');
   overlay.classList.add('active');
   overlay.setAttribute('aria-hidden', 'false');
@@ -1140,7 +1140,8 @@ function hideGameDeleteConfirmation() {
 function confirmGameDeletion() {
   if (pendingGameDeleteId === null) return;
   
-  games = games.filter(g => g.id !== pendingGameDeleteId);
+  // Ensure strict type comparison works by converting both to Number
+  games = games.filter(g => Number(g.id) !== pendingGameDeleteId);
   localStorage.setItem("jassGames", JSON.stringify(games));
   
   // Wenn das gelöschte Spiel das aktuelle war, laden wir das letzte verbleibende oder resetten
