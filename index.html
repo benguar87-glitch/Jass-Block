@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="de" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <title>Jass-Block</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icon-192.png" sizes="192x192">
+  <meta name="theme-color" content="#0d4a91">
+  <meta name="viewport" content="width=device-width, initial-scale=2, maximum-scale=2">
+  <style>
+    :root {
+      --color-background: #f8fafc;
+      --color-surface: #ffffff;
+      --color-border: #d1d5db;
+      --color-border-soft: #e2e8f0;
+      --color-fill-muted: #f1f5f9;
+      --color-text: #0f172a;
+      --color-muted-text: #475569;
+      --color-primary: #0d4a91;
+      --color-primary-dark: #083d7e;
+      --color-primary-contrast: #ffffff;
+      --color-success: #0b5c86;
+      --color-warning: #ffb347;
+      --color-danger: #c24133;
+      --color-overlay-rgb: 5, 18, 64;
+    }
+    [data-theme="dark"] {
+      --color-background: #05070f;
+      --color-surface: #0c1220;
+      --color-border: #1a1f33;
+      --color-border-soft: #27304a;
+      --color-fill-muted: #141a2c;
+      --color-text: #e2e8f0;
+      --color-muted-text: #a9b1c5;
+      --color-primary: #7dd3fc;
+      --color-primary-dark: #3b82f6;
+      --color-primary-contrast: #0f172a;
+      --color-success: #34d399;
+      --color-warning: #facc15;
+      --color-danger: #fb7185;
+      --color-overlay-rgb: 2, 6, 23;
+    }
+    [data-theme="dark"] .round-entry-table th,
+    [data-theme="dark"] .round-details-table th,
+    [data-theme="dark"] .team-breakdown-table th {
+      color: #ffffff;
+    }
+    [data-theme="dark"] #victoryOverlay .victory-card,
+    [data-theme="dark"] #deleteConfirmOverlay .confirmation-card {
+      background: linear-gradient(145deg, rgba(15,17,26,0.95), rgba(24,30,52,0.95));
+      box-shadow: 0 25px 45px rgba(0,0,0,0.5);
+      color: var(--color-text);
+    }
+    body { background: var(--color-background); color: var(--color-text); font-family: Arial, sans-serif; margin: 18px 18px 18px; line-height: 1.6; font-size: 18px; }
+    .app-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; gap:8px; }
+    .app-title-group { display:flex; align-items:center; gap:12px; }
+    .app-header h2 { margin:0; font-size:28px; }
+    .app-logo { width:44px; height:44px; border-radius:10px; overflow:hidden; background: var(--color-primary); display:flex; align-items:center; justify-content:center; box-shadow:0 8px 24px rgba(13,74,145,0.3); }
+    .app-logo img { width:100%; height:100%; object-fit:cover; display:block; }
+    .theme-toggle-button { width:44px; height:44px; border-radius:50%; border:1px solid var(--color-border); background: var(--color-surface); color: var(--color-text); font-size:20px; display:flex; align-items:center; justify-content:center; cursor:pointer; margin:0; }
+    .theme-toggle-button:hover { background: var(--color-fill-muted); }
+    .theme-reset-button { border-radius:8px; border:1px solid var(--color-border); background:transparent; color:var(--color-muted-text); font-size:14px; padding:6px 12px; cursor:pointer; }
+    .theme-reset-button:hover { color:var(--color-text); background:var(--color-fill-muted); }
+    main, .breakdown-group { max-width: 960px; margin-inline:auto; }
+    input, select, button { margin: 5px; }
+    input, select {
+      border: 1px solid var(--color-border-soft);
+      border-radius: 6px;
+      background: var(--color-surface);
+      color: var(--color-text);
+      font-size: 16px;
+    }
+    button {
+      border-radius: 6px;
+      font-family: inherit;
+      font-weight: 600;
+      border: 1px solid transparent;
+      background: var(--color-fill-muted);
+      color: var(--color-text);
+    }
+    canvas { margin-top: 20px; }
+    ul { list-style-type: none; padding-left: 0; }
+    .teams-row { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:12px; }
+    .team-col { flex:1; min-width:260px; border:1px solid var(--color-border-soft); padding:12px; border-radius:12px; background: var(--color-surface); box-shadow:0 12px 28px rgba(15,23,42,0.05); }
+    .team-col h4 { margin-top:0; }
+    @media (max-width:600px) { .teams-row { flex-direction:column; } }
+
+    /* Touch-friendly inputs and compact numeric fields for points/weis */
+    input[type="number"], input[type="text"] { padding:8px; font-size:16px; }
+    input.small { width:110px; max-width:38%; padding:8px; font-size:16px; }
+    input.medium { width:220px; max-width:70%; padding:8px; font-size:16px; }
+    .target-input { width:130px; max-width:50%; }
+    button.primary { padding:14px 22px; font-size:18px; border-radius:10px; background: var(--color-primary); color: var(--color-primary-contrast); border:none; box-shadow:0 18px 40px rgba(13,74,145,0.25); transition:transform 0.2s ease, box-shadow 0.2s ease; }
+    button.primary:hover { transform:translateY(-2px); box-shadow:0 25px 45px rgba(13,74,145,0.35); }
+    button.primary:focus-visible { outline:2px solid var(--color-primary-contrast); outline-offset:3px; }
+    button.primary:disabled { background: var(--color-fill-muted); color: var(--color-muted-text); box-shadow:none; cursor:not-allowed; }
+    .field { display:inline-block; white-space:nowrap; margin-right:10px; vertical-align:middle; }
+    .field label { margin-right:6px; color: var(--color-muted-text); }
+    input:disabled { background: var(--color-fill-muted); color: var(--color-muted-text); border-color: var(--color-border); cursor:not-allowed; }
+    input[disabled]::placeholder { color: var(--color-muted-text); }
+    input.invalid { border-color: var(--color-danger); box-shadow:0 0 0 3px rgba(194,65,51,0.12); }
+    .hint { color: var(--color-danger); font-size:12px; margin-top:4px; display:block; }
+    .summary-team-name { font-size:18px; font-weight:700; display:block; margin-bottom:6px; }
+    .pointsGreen { color: var(--color-success); font-weight:700; }
+    .pointsOrange { color: var(--color-warning); font-weight:700; }
+    .summary-line { display:flex; align-items:center; gap:8px; cursor:pointer; }
+    .summary-icon { width:18px; height:18px; display:inline-block; vertical-align:middle; margin-right:6px; }
+    .summary-icon svg { width:100%; height:100%; display:block; }
+    .team-breakdown { margin-top:8px; font-size:16px; }
+    .team-breakdown ul { margin:6px 0 0 0; padding:0; }
+    .team-breakdown li { margin:2px 0; list-style:none; }
+    .break-row { display:flex; align-items:center; justify-content:flex-start; }
+    .break-left { color: var(--color-text); margin-right:12px; }
+    .break-right { display:flex; align-items:center; justify-content:flex-end; gap:1px; }
+    .break-num.left { min-width:36px; width:42px; text-align:right; display:inline-block; }
+    .break-num.right { min-width:0; width:44px; text-align:right; display:inline-block; padding:0; font-family: inherit; font-size: inherit; font-weight: inherit; font-variant-numeric: tabular-nums; }
+    .break-slash { width:10px; text-align:center; display:inline-block; color:#6b7280; margin:0 0px; }
+    .breakdown-group { display:flex; flex-direction:column; gap:16px; }
+    .breakdown { border:1px solid var(--color-border-soft); border-radius:8px; background:var(--color-surface); }
+    .breakdown-header { width:100%; border:none; background:var(--color-fill-muted); padding:12px 16px; font-size:16px; text-align:left; font-weight:600; display:flex; justify-content:space-between; align-items:center; cursor:pointer; }
+    .breakdown-content { display:none; padding:16px; }
+    .breakdown-content.expanded { display:block; }
+    .breakdown-content.disabled { opacity:0.55; }
+    .tab-nav { display:flex; gap:6px; margin-bottom:12px; }
+    .tab-button { flex:1; border:none; padding:10px 14px; border-radius:6px; background:var(--color-fill-muted); font-weight:600; cursor:pointer; transition:background 0.2s ease, color 0.2s ease; }
+    .tab-button.active { background: var(--color-primary); color: var(--color-primary-contrast); }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+    .breakdown-indicator { font-size:16px; }
+    .tab-panel canvas { width:100% !important; height:auto !important; min-height:220px; }
+    .summary-line { flex-direction:column; align-items:flex-start; gap:4px; }
+    .sumValue { font-size:18px; }
+    .round-details { margin-top:22px; }
+    .round-details h4 { font-size:18px; margin:0 0 6px; font-weight:600; }
+    .round-details-table, .team-breakdown-table { width:100%; border-collapse:collapse; font-family:inherit; font-size:16px; }
+    .round-details-table th, .round-details-table td, .team-breakdown-table th, .team-breakdown-table td { text-align:left; padding:6px 8px; }
+    .round-details-table th, .team-breakdown-table th { font-weight:700; font-size:14px; letter-spacing:0.05em; color:#374151; }
+    .round-details-table td, .team-breakdown-table td { border-top:1px solid var(--color-border-soft); }
+    .round-details-table .round-label, .team-breakdown-table .round-label { width:70px; font-weight:400; }
+    .round-entry-table-wrapper { border:1px solid var(--color-border-soft); border-radius:12px; background: var(--color-surface); box-shadow:0 12px 28px rgba(15,23,42,0.05); padding:12px; }
+    .round-entry-table { width:100%; border-collapse:collapse; margin-bottom:6px; font-size:16px; }
+    .round-entry-table th, .round-entry-table td { border:1px solid var(--color-border-soft); padding:8px; }
+    .round-entry-table td { vertical-align:top; }
+    .round-entry-table th { background: var(--color-fill-muted); font-weight:600; }
+    .round-entry-table input { width:100%; box-sizing:border-box; height:40px; }
+    .match-checkbox { display:flex; align-items:center; gap:6px; font-size:14px; color: var(--color-muted-text); justify-content:center; }
+    .match-checkbox input { margin:0; width:auto; }
+    .round-entry-hints { display:flex; flex-wrap:wrap; gap:10px; }
+    .round-submit { margin-top:6px; }
+    .round-entry-hints .hint { flex:1 1 45%; margin:0; }
+    .round-detail-points { display:flex; align-items:center; gap:4px; }
+    .round-total { display:inline-block; font-size:16px; color: var(--color-text); margin-left:8px; font-family:inherit; font-weight:600; }
+    .round-delete { margin-left:10px; background: var(--color-danger); border:none; color:#fff; padding:2px 8px; border-radius:4px; font-size:12px; cursor:pointer; }
+    .round-delete:hover { background:#a22b1f; }
+    #victoryOverlay { position:fixed; inset:0; background:rgba(var(--color-overlay-rgb),0.72); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.25s ease-in-out; z-index:30; }
+    #victoryOverlay.active { opacity:1; pointer-events:auto; }
+    #victoryOverlay .victory-card { position:relative; padding:32px 48px; border-radius:24px; background:linear-gradient(145deg, rgba(255,255,255,0.95), rgba(244, 250, 241, 0.95)); box-shadow:0 25px 45px rgba(15,23,42,0.45); text-align:center; transform:translateY(-6px) scale(0.98); animation:victoryPop 0.4s ease forwards; min-width:260px; color:var(--color-text); }
+    #victoryOverlay.active .victory-card { animation:victoryPop 0.45s ease both; }
+    .victory-confetti { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+    .victory-confetti span { position:absolute; width:12px; height:12px; border-radius:50%; background:var(--confetti-color,#fbbf24); animation:confettiFall 3.8s ease-in infinite; opacity:.9; }
+    .victory-confetti span:nth-child(1) { left:8%; animation-delay:0s; background:#facc15; }
+    .victory-confetti span:nth-child(2) { left:22%; animation-delay:0.4s; background:#fb7185; }
+    .victory-confetti span:nth-child(3) { left:40%; animation-delay:0.9s; background:#a855f7; }
+    .victory-confetti span:nth-child(4) { left:58%; animation-delay:1.2s; background:#38bdf8; }
+    .victory-confetti span:nth-child(5) { left:72%; animation-delay:0.6s; background:#22c55e; }
+    .victory-confetti span:nth-child(6) { left:88%; animation-delay:1s; background:#fb923c; }
+    #victoryOverlay .victory-icon { font-size:48px; margin-bottom:12px; }
+    #victoryOverlay #victoryMessage { margin:0; font-size:24px; font-weight:600; color:#1b4630; }
+    #victoryOverlay button { margin-top:16px; padding:10px 20px; border-radius:999px; border:none; background: var(--color-primary); color: var(--color-primary-contrast); font-weight:700; cursor:pointer; transition:transform 0.2s ease, box-shadow 0.2s ease; }
+    #victoryOverlay button:hover { transform:translateY(-1px); box-shadow:0 10px 20px rgba(13,74,145,0.35); }
+    body.confirmation-mode { overflow:hidden; }
+    #deleteConfirmOverlay { position:fixed; inset:0; background:rgba(var(--color-overlay-rgb),0.78); display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s ease-in-out; z-index:35; }
+    #deleteConfirmOverlay.active { opacity:1; pointer-events:auto; }
+    #deleteConfirmOverlay .confirmation-card { position:relative; padding:28px 38px; border-radius:20px; background: linear-gradient(145deg, rgba(255,255,255,0.98), rgba(233, 240, 255, 0.95)); box-shadow:0 25px 45px rgba(15,23,42,0.45); text-align:center; min-width:280px; color:var(--color-text); }
+    #deleteConfirmOverlay .confirmation-card h3 { margin-top:0; font-size:22px; font-weight:700; color:var(--color-text); }
+    #deleteConfirmOverlay .confirmation-card p { margin:6px 0 18px; color:var(--color-text); font-size:18px; }
+    #deleteConfirmOverlay .confirmation-actions { display:flex; justify-content:center; gap:10px; }
+    #deleteConfirmOverlay .confirmation-actions button { padding:10px 18px; border-radius:8px; border:none; font-weight:700; cursor:pointer; }
+    #deleteConfirmOverlay .confirmation-actions .neutral { background:#e2e8f0; color:#0f172a; }
+    #deleteConfirmOverlay .confirmation-actions .danger { background:var(--color-danger); color:#fff; }
+    @keyframes confettiFall { 0% { transform: translateY(-140px) rotate(0deg); } 100% { transform: translateY(110vh) rotate(360deg); } }
+    @keyframes victoryPop { 0% { transform: translateY(-20px) scale(0.85); opacity:0; } 70% { transform: translateY(0) scale(1.02); opacity:1; } 100% { transform: translateY(-6px) scale(1); } }
+    body.victory-mode #pointsBreakdownContent { filter:brightness(1.05) saturate(1.1); }
+    body.victory-mode #summaryRow .team-col { box-shadow:0 15px 30px rgba(13,74,145,0.2); }
+    @media (max-width:640px) {
+      body { font-size: 20px; margin: 12px; }
+      .teams-row { gap:12px; }
+      .team-col { padding:16px; }
+      .breakdown-header { font-size:18px; padding:14px 18px; }
+      .field { display:block; width:100%; }
+      .field label { display:block; margin-bottom:6px; }
+      input.small, input.medium, .target-input { width:100%; max-width:none; }
+      button.primary { width:100%; justify-content:center; }
+      .tab-nav { flex-direction: column; }
+      .tab-button { font-size:18px; padding:14px; }
+      canvas { width:100% !important; height:auto !important; }
+      .summary-line { flex-direction:column; align-items:flex-start; }
+      .summary-team-name { font-size:20px; }
+      .sumValue { font-size:20px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="app-title-group">
+    <div class="app-logo">
+      <img src="icon-192.png" alt="Jass-Block Logo" loading="lazy">
+    </div>
+    <h2>Jass-Block</h2>
+  </div>
+  <button id="themeToggleBtn" type="button" class="theme-toggle-button" aria-label="In den Dunkelmodus wechseln">🌙</button>
+  <button id="themeResetBtn" type="button" class="theme-reset-button" aria-label="Systemdesign übernehmen" style="display:none">Systemdesign</button>
+</header>
+<div class="breakdown-group">
+  <div class="breakdown">
+    <button class="breakdown-header" type="button" data-indicator="settingsIndicator" onclick="toggleBreakdownSection('settingsBreakdownContent')">
+      Spiel-Einstellungen
+      <span class="breakdown-indicator" id="settingsIndicator">▸</span>
+    </button>
+    <div class="breakdown-content" id="settingsBreakdownContent">
+      <div class="teams-row">
+        <div class="team-col">
+          <h4>Team 1</h4>
+          <div class="field"><label>Name</label><input id="team1Name" class="medium" placeholder="Team A"></div>
+          <div class="field"><label>Zielpunkte</label><input id="targetPoints1" class="medium target-input" type="number" value="1000" placeholder="z. B. 1000"></div>
+        </div>
+        <div class="team-col">
+          <h4>Team 2</h4>
+          <div class="field"><label>Name</label><input id="team2Name" class="medium" placeholder="Team B"></div>
+          <div class="field"><label>Zielpunkte</label><input id="targetPoints2" class="medium target-input" type="number" value="1000" placeholder="z. B. 1000"></div>
+        </div>
+      </div>
+      <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+        <button id="startGameToggle" class="primary" type="button" onclick="handleStartButtonClick()">Spiel starten</button>
+        <button id="cancelNewGameBtn" class="primary" type="button" style="display:none" onclick="cancelNewGamePreparation()">Abbrechen</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="breakdown">
+    <button class="breakdown-header" type="button" data-indicator="pointsIndicator" onclick="toggleBreakdownSection('pointsBreakdownContent')">
+      Punkteaufschrieb
+      <span class="breakdown-indicator" id="pointsIndicator">▾</span>
+    </button>
+    <div class="breakdown-content expanded" id="pointsBreakdownContent">
+      <div class="breakdown-content expanded" id="newRoundBreakdownContent">
+        <div class="round-entry-table-wrapper">
+          <table class="round-entry-table">
+            <thead>
+              <tr>
+                <th colspan="2" id="roundTeamLabel1">Team 1</th>
+                <th colspan="2" id="roundTeamLabel2">Team 2</th>
+              </tr>
+              <tr>
+                <th>Punkte</th>
+                <th>Weis.</th>
+                <th>Punkte</th>
+                <th>Weis.</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>
+                  <input id="roundTeam1" type="number" min="0" max="260" step="1" inputmode="numeric" pattern="\d*" placeholder="80">
+                  <label class="match-checkbox">
+                    <input type="checkbox" id="roundMatch1">
+                    Match
+                  </label>
+                </td>
+                <td><input id="roundWeis1" type="number" min="0" max="990" step="10" inputmode="numeric" pattern="\d*" value="0"></td>
+                <td>
+                  <input id="roundTeam2" type="number" min="0" max="260" step="1" inputmode="numeric" pattern="\d*" placeholder="80">
+                  <label class="match-checkbox">
+                    <input type="checkbox" id="roundMatch2">
+                    Match
+                  </label>
+                </td>
+                <td><input id="roundWeis2" type="number" min="0" max="990" step="10" inputmode="numeric" pattern="\d*" value="0"></td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="round-entry-hints">
+            <span class="hint" id="roundHint1"></span>
+            <span class="hint" id="weisHint1"></span>
+            <span class="hint" id="roundHint2"></span>
+            <span class="hint" id="weisHint2"></span>
+          </div>
+          <div class="round-submit">
+            <button id="addRoundBtn" class="primary" onclick="addRound()">Punkte hinzufügen</button>
+          </div>
+        </div>
+      </div>
+      <div class="tabs" id="breakdownTabs">
+        <div class="tab-nav">
+          <button class="tab-button active" type="button" data-tab="pointsChartPanel">Punkteverlauf</button>
+          <button class="tab-button" type="button" data-tab="moodChartPanel">Stimmungsverlauf</button>
+        </div>
+        <div class="tab-panel active" id="pointsChartPanel">
+          <canvas id="pointsChart" height="200" tabindex="0"></canvas>
+        </div>
+        <div class="tab-panel" id="moodChartPanel">
+          <canvas id="moodChart" height="150" tabindex="0"></canvas>
+        </div>
+      </div>
+        <div class="breakdown" style="margin-top:24px">
+            <button class="breakdown-header" type="button" data-indicator="roundDetailsIndicator" onclick="toggleBreakdownSection('roundDetailsBreakdownContent')">
+              Punkte je Runde
+              <span class="breakdown-indicator" id="roundDetailsIndicator">▸</span>
+            </button>
+          <div class="breakdown-content" id="roundDetailsBreakdownContent">  
+            <div id="roundDetailsContainer"></div>
+          </div>
+        </div>
+    </div>
+  </div>
+
+  <div class="breakdown">
+    <button class="breakdown-header" type="button" data-indicator="savedGamesIndicator" onclick="toggleBreakdownSection('savedGamesBreakdownContent')">
+      Gespeicherte Spiele
+      <span class="breakdown-indicator" id="savedGamesIndicator">▸</span>
+    </button>
+    <div class="breakdown-content" id="savedGamesBreakdownContent">
+      <ul id="gameList"></ul>
+    </div>
+  </div>
+</div>
+
+<div id="victoryOverlay" aria-live="polite" aria-atomic="true" aria-hidden="true">
+  <div class="victory-confetti">
+    <span></span><span></span><span></span><span></span><span></span><span></span>
+  </div>
+  <div class="victory-card">
+    <div class="victory-icon" aria-hidden="true">🥳</div>
+    <p id="victoryMessage">Erfolg!</p>
+    <button type="button" onclick="hideVictoryAnimation()">Zurück zum Spiel</button>
+    <button type="button" onclick="goToSettingsForNewGame()">Neues Spiel</button>
+  </div>
+</div>
+
+<div id="deleteConfirmOverlay" aria-hidden="true" role="alertdialog" aria-modal="true">
+  <div class="confirmation-card">
+    <h3>Runde löschen?</h3>
+    <p>Runde <span data-round-number>1</span> wirklich entfernen?</p>
+    <div class="confirmation-actions">
+      <button type="button" class="neutral" onclick="hideRoundDeleteConfirmation()">Abbrechen</button>
+      <button type="button" class="danger" onclick="confirmRoundDeletion()">Löschen</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
